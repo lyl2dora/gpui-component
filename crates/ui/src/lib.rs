@@ -102,16 +102,25 @@ rust_i18n::i18n!("locales", fallback = "en");
 /// Initialize the components.
 ///
 /// You must initialize the components at your application's entry point.
+/// One-time setup: theme, global state, dock, inspector + all keybindings.
 pub fn init(cx: &mut App) {
     theme::init(cx);
     global_state::init(cx);
     #[cfg(any(feature = "inspector", debug_assertions))]
     inspector::init(cx);
+    dock::init(cx);
+    bind_keys(cx);
+}
+
+/// Register all component keybindings.
+///
+/// Safe to call repeatedly (e.g. after `cx.clear_key_bindings()`).
+/// Does NOT reset theme, global state, dock, or inspector.
+pub fn bind_keys(cx: &mut App) {
     root::init(cx);
     focus_trap::init(cx);
     color_picker::init(cx);
     date_picker::init(cx);
-    dock::init(cx);
     sheet::init(cx);
     select::init(cx);
     input::init(cx);
