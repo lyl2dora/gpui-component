@@ -959,10 +959,15 @@ impl TextElement {
                 .to_string()
                 .split("\n")
                 .map(|line| {
+                    // [PATCH] 多行 placeholder 按行裁剪 run len，防止 DirectWrite 越界 panic
+                    let line_runs: Vec<TextRun> = runs
+                        .iter()
+                        .map(|r| TextRun { len: line.len(), ..r.clone() })
+                        .collect();
                     let shaped_line = window.text_system().shape_line(
                         line.to_string().into(),
                         font_size,
-                        &runs,
+                        &line_runs,
                         None,
                     );
                     LineLayout::new()
