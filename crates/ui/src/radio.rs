@@ -146,7 +146,9 @@ impl RenderOnce for Radio {
         };
 
         // wrap a flex to patch for let Radio display inline
-        div().child(
+        div()
+            .when(disabled, |this| this.opacity(0.5))
+            .child(
             self.base
                 .id(self.id.clone())
                 .when(!self.disabled, |this| {
@@ -349,8 +351,9 @@ impl RenderOnce for RadioGroup {
                 .children(self.radios.into_iter().enumerate().map(|(ix, mut radio)| {
                     let checked = selected_ix == Some(ix);
 
+                    let item_disabled = radio.disabled || disabled;
                     radio.id = ix.into();
-                    radio.disabled(disabled).checked(checked).when_some(
+                    radio.disabled(item_disabled).checked(checked).when_some(
                         on_click.clone(),
                         |this, on_click| {
                             this.on_click(move |_, window, cx| {
