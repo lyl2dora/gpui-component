@@ -251,13 +251,19 @@ impl RenderOnce for ResizablePanel {
             .id(("resizable-panel", self.panel_ix))
             .flex()
             .flex_grow()
-            .size_full()
+            .overflow_hidden()
             .relative()
             .when(self.axis.is_vertical(), |this| {
-                this.min_h(size_range.start).max_h(size_range.end)
+                // vertical resize: resize 轴(高度)由 flex-basis 控制，只设非 resize 轴 full
+                this.w_full()
+                    .min_h(size_range.start)
+                    .max_h(size_range.end)
             })
             .when(self.axis.is_horizontal(), |this| {
-                this.min_w(size_range.start).max_w(size_range.end)
+                // horizontal resize: resize 轴(宽度)由 flex-basis 控制，只设非 resize 轴 full
+                this.h_full()
+                    .min_w(size_range.start)
+                    .max_w(size_range.end)
             })
             // 1. initial_size is None, to use auto size.
             // 2. initial_size is Some and size is none, to use the initial size of the panel for first time render.
@@ -284,7 +290,13 @@ impl RenderOnce for ResizablePanel {
                     })
                 }
             })
-            .children(self.children)
+            .child(
+                // Here add a wrapper `div` to avoid the content may not fill full issue.
+                //
+                // Ref:
+                // https://github.com/longbridge/gpui-component/pull/2097
+                div().flex().flex_col().size_full().min_h_0().min_w_0().children(self.children),
+            )
             .when(self.panel_ix > 0, |this| {
                 let ix = self.panel_ix - 1;
                 this.child(resize_handle(("resizable-handle", ix), self.axis).on_drag(
