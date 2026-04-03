@@ -33,3 +33,16 @@ pub use otp_input::*;
 pub use rope_ext::{InputEdit, Point, RopeExt, RopeLines};
 pub use ropey::Rope;
 pub use state::*;
+
+/// 对 String 的底层字节逐字节写零，防止编译器优化掉清零操作。
+/// 用于密码输入框 drop 时清除敏感数据。
+pub(super) fn zeroize_string(s: &mut String) {
+    unsafe {
+        let bytes = s.as_mut_str().as_bytes_mut();
+        for byte in bytes.iter_mut() {
+            std::ptr::write_volatile(byte as *mut u8, 0);
+        }
+    }
+    std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
+    s.clear();
+}

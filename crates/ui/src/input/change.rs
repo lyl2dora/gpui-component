@@ -28,6 +28,14 @@ impl Change {
     }
 }
 
+impl Change {
+    /// 将 old_text 和 new_text 的内存内容清零，防止敏感数据残留。
+    pub(crate) fn zeroize(&mut self) {
+        super::zeroize_string(&mut self.old_text);
+        super::zeroize_string(&mut self.new_text);
+    }
+}
+
 impl HistoryItem for Change {
     fn version(&self) -> usize {
         self.version

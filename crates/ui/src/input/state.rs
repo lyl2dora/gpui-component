@@ -373,6 +373,20 @@ pub struct InputState {
 
 impl EventEmitter<InputEvent> for InputState {}
 
+impl Drop for InputState {
+    fn drop(&mut self) {
+        if self.masked {
+            // 1. 提取 Rope 内容到可控的 String，替换 Rope 为空
+            let mut old_content = self.text.to_string();
+            self.text = Rope::new();
+            super::zeroize_string(&mut old_content);
+
+            // 2. 清零 History 中的 old_text / new_text
+            self.history.zeroize_and_clear(|change| change.zeroize());
+        }
+    }
+}
+
 impl InputState {
     /// Create a Input state with default [`InputMode::SingleLine`] mode.
     ///
@@ -458,7 +472,7 @@ impl InputState {
     ///
     /// Default rows is 2.
     pub fn multi_line(mut self, multi_line: bool) -> Self {
-        self.mode = self.mode.multi_line(multi_line);
+        self.mode = std::mem::take(&mut self.mode).multi_line(multi_line);
         self
     }
 

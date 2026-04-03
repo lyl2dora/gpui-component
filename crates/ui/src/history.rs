@@ -128,6 +128,16 @@ where
         self.redos.clear();
     }
 
+    /// 对每个 item 执行清零回调后清空 undo/redo 栈。
+    /// 用于密码输入框 drop 时清除敏感数据。
+    pub fn zeroize_and_clear(&mut self, mut zeroize_fn: impl FnMut(&mut I)) {
+        for item in self.undos.iter_mut().chain(self.redos.iter_mut()) {
+            zeroize_fn(item);
+        }
+        self.undos.clear();
+        self.redos.clear();
+    }
+
     /// Undo the last change and return the changes that were undone.
     pub fn undo(&mut self) -> Option<Vec<I>> {
         if let Some(first_change) = self.undos.pop() {
