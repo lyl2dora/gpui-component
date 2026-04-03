@@ -515,6 +515,8 @@ impl Element for Scrollbar {
     ) -> (LayoutId, Self::RequestLayoutState) {
         let mut style = Style::default();
         style.position = Position::Absolute;
+        style.inset.top = px(0.).into();
+        style.inset.left = px(0.).into();
         style.flex_grow = 1.0;
         style.flex_shrink = 1.0;
         style.size.width = relative(1.).into();
@@ -623,7 +625,7 @@ impl Element for Scrollbar {
                     }
                 } else if is_offset_changed {
                     self.style_for_normal(cx)
-                } else if is_always_to_show {
+                } else if is_always_to_show || is_hovered_on_bar || is_hovered_on_thumb {
                     if is_hovered_on_thumb {
                         Self::style_for_hovered_thumb(cx)
                     } else {
@@ -743,6 +745,7 @@ impl Element for Scrollbar {
         let hitbox_bounds = prepaint.hitbox.bounds;
         let is_visible = scrollbar_state.get().is_scrollbar_visible() || scrollbar_show.is_always();
         let is_hover_to_show = scrollbar_show.is_hover();
+        let is_hovered = scrollbar_state.get().hovered_axis.is_some();
 
         // Update last_scroll_time when offset is changed.
         if self.scroll_handle.offset() != scrollbar_state.get().last_scroll_offset {
@@ -825,7 +828,7 @@ impl Element for Scrollbar {
 
                     let safe_range = (-scroll_area_size + container_size)..px(0.);
 
-                    if is_hover_to_show || is_visible {
+                    if is_hover_to_show || is_visible || is_hovered {
                         window.on_mouse_event({
                             let state = scrollbar_state.clone();
                             let scroll_handle = self.scroll_handle.clone();
@@ -881,23 +884,15 @@ impl Element for Scrollbar {
 
                         move |event: &MouseMoveEvent, _, _, cx| {
                             let mut notify = false;
-                            // When is hover to show mode or it was visible,
-                            // we need to update the hovered state and increase the last_scroll_time.
-                            let need_hover_to_update = is_hover_to_show || is_visible;
                             // Update hovered state for scrollbar
-                            if bounds.contains(&event.position) && need_hover_to_update {
-                                state.set(state.get().with_hovered(Some(axis)));
-
+                            if bounds.contains(&event.position) {
                                 if state.get().hovered_axis != Some(axis) {
+                                    state.set(state.get().with_hovered(Some(axis)));
                                     notify = true;
                                 }
-                            } else {
-                                if state.get().hovered_axis == Some(axis) {
-                                    if state.get().hovered_axis.is_some() {
-                                        state.set(state.get().with_hovered(None));
-                                        notify = true;
-                                    }
-                                }
+                            } else if state.get().hovered_axis == Some(axis) {
+                                state.set(state.get().with_hovered(None));
+                                notify = true;
                             }
 
                             // Update hovered state for scrollbar thumb
