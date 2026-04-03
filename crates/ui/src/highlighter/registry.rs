@@ -204,6 +204,17 @@ pub struct ThemeStyle {
     font_weight: Option<FontWeightContent>,
 }
 
+impl ThemeStyle {
+    /// Tera patch: upstream ThemeStyle has private fields and no constructor.
+    pub fn new(
+        color: Option<Hsla>,
+        font_style: Option<FontStyle>,
+        font_weight: Option<FontWeightContent>,
+    ) -> Self {
+        Self { color, font_style, font_weight }
+    }
+}
+
 impl From<ThemeStyle> for HighlightStyle {
     fn from(style: ThemeStyle) -> Self {
         HighlightStyle {
