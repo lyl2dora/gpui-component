@@ -293,6 +293,13 @@ where
                     });
                 });
             }
+            InputEvent::PressEnter { secondary } => self.on_action_confirm(
+                &Confirm {
+                    secondary: *secondary,
+                },
+                window,
+                cx,
+            ),
             _ => {}
         }
     }
