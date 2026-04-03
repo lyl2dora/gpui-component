@@ -360,6 +360,17 @@ where
         cx.notify();
     }
 
+    /// Returns the row height in pixels based on the current size option.
+    pub fn row_height(&self) -> f32 {
+        f32::from(self.options.size.table_row_height())
+    }
+
+    /// Returns the vertical scroll offset in pixels (positive = scrolled down).
+    pub fn vertical_scroll_offset_px(&self) -> f32 {
+        let offset = self.vertical_scroll_handle.0.borrow().base_handle.offset();
+        -f32::from(offset.y)
+    }
+
     /// Returns the selected row index.
     pub fn selected_row(&self) -> Option<usize> {
         self.selected_row
@@ -611,34 +622,32 @@ where
         &mut self,
         e: &ClickEvent,
         row_ix: usize,
-        _: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if !self.row_selectable {
             return;
         }
 
-        self.set_selected_row(row_ix, cx);
+        if self.delegate.on_row_click(row_ix, e, window, cx) {
+            self.set_selected_row(row_ix, cx);
+        }
 
         if e.click_count() == 2 {
             cx.emit(TableEvent::DoubleClickedRow(row_ix));
         }
     }
 
-    fn on_col_head_click(&mut self, col_ix: usize, _: &mut Window, cx: &mut Context<Self>) {
-        if !self.col_selectable {
-            return;
+    fn on_col_head_click(&mut self, col_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.col_selectable {
+            if let Some(col_group) = self.col_groups.get(col_ix) {
+                if col_group.column.selectable {
+                    self.set_selected_col(col_ix, cx);
+                }
+            }
         }
 
-        let Some(col_group) = self.col_groups.get(col_ix) else {
-            return;
-        };
-
-        if !col_group.column.selectable {
-            return;
-        }
-
-        self.set_selected_col(col_ix, cx)
+        self.perform_sort(col_ix, window, cx);
     }
 
     fn on_cell_click(
@@ -1522,6 +1531,9 @@ where
         let view = cx.entity().clone();
         let row_height = self.options.size.table_row_height();
 
+        // 列宽总和：行背景仅覆盖数据列区域，不延伸到滚动条
+        let total_col_width = self.col_groups.iter().fold(px(0.), |acc, g| acc + g.bounds.size.width);
+
         if row_ix < rows_count {
             let is_last_row = row_ix + 1 == rows_count;
             let need_render_border = is_selected || !is_last_row || !is_filled;
@@ -1529,16 +1541,26 @@ where
             let mut tr = self.delegate.render_tr(row_ix, window, cx);
             let style = tr.style().clone();
 
+            // Always reserve 1px border on all sides (transparent by default)
+            // so that toggling selected-row highlight only changes border *color*,
+            // never layout. Without this, .border_1() on selection adds a top
+            // border that shifts row content down by 1px — the visual "jump".
+            let has_active_highlight = cx.theme().list.active_highlight;
             tr.h_flex()
-                .w_full()
+                .w(total_col_width)
                 .h(row_height)
+                .when(has_active_highlight, |this| {
+                    this.border_1().border_color(gpui::transparent_black())
+                })
                 .when(need_render_border, |this| {
                     this.border_b_1().border_color(cx.theme().table_row_border)
                 })
                 .when(is_stripe_row, |this| this.bg(cx.theme().table_even))
                 .refine_style(&style)
                 .hover(|this| {
-                    if is_selected || self.right_clicked_row == Some(row_ix) {
+                    if is_selected || self.right_clicked_row == Some(row_ix)
+                        || self.delegate.is_row_selected(row_ix)
+                    {
                         this
                     } else {
                         this.bg(cx.theme().table_hover)
@@ -1806,11 +1828,25 @@ where
             self.delegate
                 .render_tr(row_ix, window, cx)
                 .h_flex()
-                .w_full()
+                .w(total_col_width)
                 .h(row_height)
                 .border_b_1()
                 .border_color(cx.theme().table_row_border)
                 .when(is_stripe_row, |this| this.bg(cx.theme().table_even))
+                .on_mouse_down(
+                    MouseButton::Right,
+                    cx.listener(|this, _, _, _| {
+                        this.right_clicked_row = None;
+                    }),
+                )
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| {
+                        this.selected_row = None;
+                        this.delegate_mut().on_blank_area_click();
+                        cx.notify();
+                    }),
+                )
                 .when(self.cell_selectable, |this| {
                     // Render empty row selector cell for fake rows
                     this.child(
