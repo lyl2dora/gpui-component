@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use gpui::{
-    App, Context, Div, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
+    App, ClickEvent, Context, Div, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
     SharedString, Stateful, Styled as _, Window, div,
 };
 
@@ -108,6 +108,16 @@ pub trait TableDelegate: Sized + 'static {
         menu
     }
 
+    /// Render the context menu for blank area (below data rows).
+    fn blank_context_menu(
+        &mut self,
+        menu: PopupMenu,
+        _window: &mut Window,
+        _cx: &mut Context<TableState<Self>>,
+    ) -> PopupMenu {
+        menu
+    }
+
     /// Render cell at the given row and column.
     fn render_td(
         &mut self,
@@ -116,6 +126,28 @@ pub trait TableDelegate: Sized + 'static {
         window: &mut Window,
         cx: &mut Context<TableState<Self>>,
     ) -> impl IntoElement;
+
+    /// Called when a row is left-clicked, before `set_selected_row`.
+    /// Return `true` to proceed with the default `set_selected_row` behavior,
+    /// or `false` to skip it (e.g. when Ctrl/Shift multi-select is handled externally).
+    fn on_row_click(
+        &mut self,
+        _row_ix: usize,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        _cx: &mut Context<TableState<Self>>,
+    ) -> bool {
+        true
+    }
+
+    /// Return whether a row is considered "selected" by the delegate's own multi-select state.
+    /// When true, the table will skip hover highlight for this row.
+    fn is_row_selected(&self, _row_ix: usize) -> bool {
+        false
+    }
+
+    /// Called when the blank area below data rows is left-clicked.
+    fn on_blank_area_click(&mut self) {}
 
     /// Move the column at the given `col_ix` to insert before the column at the given `to_ix`.
     fn move_column(
