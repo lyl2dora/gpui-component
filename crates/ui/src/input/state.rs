@@ -321,6 +321,8 @@ pub struct InputState {
     pub(super) selecting: bool,
     pub(super) size: Size,
     pub(super) disabled: bool,
+    /// When true, the built-in right-click context menu (Cut/Copy/Paste/Select All) is suppressed.
+    pub(super) context_menu_disabled: bool,
     pub(super) masked: bool,
     pub(super) clean_on_escape: bool,
     pub(super) soft_wrap: bool,
@@ -432,6 +434,7 @@ impl InputState {
             input_bounds: Bounds::default(),
             selecting: false,
             disabled: false,
+            context_menu_disabled: false,
             masked: false,
             clean_on_escape: false,
             soft_wrap: true,
@@ -773,6 +776,13 @@ impl InputState {
     pub fn masked(mut self, masked: bool) -> Self {
         debug_assert!(self.mode.is_single_line());
         self.masked = masked;
+        self
+    }
+
+    /// Suppress the built-in right-click context menu (Cut/Copy/Paste/Select All).
+    /// Useful for inline-editing inputs embedded in components that have their own context menu.
+    pub fn context_menu_disabled(mut self, disabled: bool) -> Self {
+        self.context_menu_disabled = disabled;
         self
     }
 
