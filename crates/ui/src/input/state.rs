@@ -1466,7 +1466,7 @@ impl InputState {
         let delta = event.delta.pixel_delta(line_height);
 
         let old_offset = self.scroll_handle.offset();
-        self.update_scroll_offset(Some(old_offset + delta), cx);
+        self.update_scroll_offset(old_offset + delta, cx);
 
         // Only stop propagation if the offset actually changed
         if self.scroll_handle.offset() != old_offset {
@@ -1476,12 +1476,7 @@ impl InputState {
         self.diagnostic_popover = None;
     }
 
-    pub(super) fn update_scroll_offset(
-        &mut self,
-        offset: Option<Point<Pixels>>,
-        cx: &mut Context<Self>,
-    ) {
-        let mut offset = offset.unwrap_or(self.scroll_handle.offset());
+    fn clamp_scroll_offset(&self, mut offset: Point<Pixels>) -> Point<Pixels> {
         // In addition to left alignment, a cursor position will be reserved on the right side
         let safe_x_offset = if self.text_align == TextAlign::Left {
             px(0.)
@@ -1500,7 +1495,21 @@ impl InputState {
             offset.y.clamp(safe_y_range.start, safe_y_range.end)
         };
         offset.x = offset.x.clamp(safe_x_range.start, safe_x_range.end);
-        self.scroll_handle.set_offset(offset);
+        offset
+    }
+
+    pub(super) fn update_scroll_offset(
+        &mut self,
+        new_offset: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        let clamped = self.clamp_scroll_offset(new_offset);
+
+        if self.scroll_handle.offset() == clamped {
+            return;
+        }
+
+        self.scroll_handle.set_offset(clamped);
         cx.notify();
     }
 
@@ -1570,6 +1579,10 @@ impl InputState {
         } else {
             line_height
         };
+        // Cap margin to viewport height: taffy edge-rounding can shrink bounds.height
+        // below line_height (e.g. 34.5 phys → 34 phys at 1.5× scale), and an
+        // uncapped margin would falsely trigger scroll on every cursor movement.
+        let edge_height = edge_height.min(bounds.size.height);
         if row_offset_y - edge_height + line_height < -scroll_offset.y {
             // Scroll up
             scroll_offset.y = -row_offset_y + edge_height - line_height;
