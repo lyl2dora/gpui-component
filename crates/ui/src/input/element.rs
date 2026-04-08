@@ -198,7 +198,8 @@ impl TextElement {
             (cursor_pos, cursor_start, cursor_end)
         {
             let selection_changed = state.last_selected_range != Some(selected_range);
-            if selection_changed && !is_selected_all {
+            let bounds_resized = state.last_bounds.map_or(true, |b| b.size != bounds.size);
+            if (selection_changed || bounds_resized) && !is_selected_all {
                 // Apart from left alignment, just leave enough space for the cursor size on the right side.
                 let safety_margin = if last_layout.text_align == TextAlign::Left {
                     RIGHT_MARGIN
